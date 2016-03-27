@@ -1,0 +1,20 @@
+{
+  "name": "purescript-endpoints-express",
+  "version": "1.0.0",
+  "moduleType": [
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-affjax": "~0.13.0",
+    "purescript-argonaut-codecs": "~0.6.1",
+    "purescript-argonaut-core": "~0.2.3",
+    "purescript-datetime": "https://github.com/parsonsmatt/purescript-datetime.git#iso8601",
+    "purescript-node-buffer": "~0.2.0"
+  }
+}
