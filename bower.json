@@ -1,14 +1,15 @@
 {
   "name": "purescript-endpoints-express",
-  "version": "1.0.0",
-  "moduleType": [
-    "node"
-  ],
+  "version": "0.0.1",
+  "authors": {
+    "Simon Van Casteren <simon.van.casteren@gmail.com>"
+  },
   "ignore": [
     "**/.*",
     "node_modules",
     "bower_components",
-    "output"
+    "output",
+    "example"
   ],
   "dependencies": {
     "purescript-affjax": "~0.13.0",

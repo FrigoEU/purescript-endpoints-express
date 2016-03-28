@@ -1,0 +1,6 @@
+{
+  "name": "purescript-endpoints-express example",
+  "dependencies": {
+    "purescript-endpoint-express": "latest"
+  }
+}
