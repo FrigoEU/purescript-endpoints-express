@@ -4,4 +4,3 @@
 /output/
 /.psci*
 /src/.webpack.js
-/example/static/*.js

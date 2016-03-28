@@ -10,6 +10,17 @@ This library basically consists of three main parts:
 2. execEndpoint
 3. hostEndpoint
 
+Make sure to check out the example to see how everything fits together! Run the example by:
+
+```
+cd example
+bower install
+npm install
+npm start
+```
+
+Then navigate to localhost:8080 to see the results!
+
 This library is in a very early phase, a bunch of things could be improved and cleaned up. Everybody's welcome to join and contribute!
 * The seperate FileEndpoint / hostFileUploadEndpoint / execFileUploadEndpoint : Probably there is a way to integrate these with the main Endpoint stuff, but I haven't thought about it too much yet.
 * Not all HTTP methods are implemented.
