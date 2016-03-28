@@ -1,9 +1,9 @@
 {
   "name": "purescript-endpoints-express",
   "version": "0.0.1",
-  "authors": {
+  "authors": [
     "Simon Van Casteren <simon.van.casteren@gmail.com>"
-  },
+  ],
   "ignore": [
     "**/.*",
     "node_modules",
