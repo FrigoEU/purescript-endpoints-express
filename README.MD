@@ -2,7 +2,7 @@ The main goal of this library is to provide type-safe communication between clie
 
 An introductory blogpost for this library can be found here:
 
-http://frigeu.github.io/phantomtypes.md
+http://frigoeu.github.io/phantomtypes.md
 
 This library basically consists of three main parts:
 
