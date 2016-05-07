@@ -3,30 +3,25 @@ module Node.Express.Endpoint (
   hostStatic
 ) where
 
-import Prelude 
-
-import Control.Monad.Eff (Eff())
-import Control.Monad.Eff.Console (log, CONSOLE())
-import Control.Monad.Aff (runAff, Aff())
+import Prelude (Unit, unit, show, ($), (>>=), (<>), bind, (>>>), return, (<<<))
+import Control.Bind ((>=>))
+import Control.Monad.Aff (runAff, Aff)
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Console (log, CONSOLE)
 import Control.Monad.Eff.Exception (message, error, Error)
 import Control.Monad.Error.Class (throwError, class MonadError)
-
-import Data.StrMap (StrMap)
-import Data.Either (Either(Left), either)
-import Data.Argonaut.Encode (class EncodeJson, encodeJson)
+import DOM.File.Types (Blob)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
-import Data.Argonaut.Parser as P
-import Data.Serializable (class Serializable, deserialize)
-import Data.Maybe (Maybe(Nothing, Just), maybe)
-
-import DOM.File.Types (Blob())
-import Unsafe.Coerce (unsafeCoerce)
-
-import Data.HTTP.Method (Method(..))
-
-import Node.Buffer (Buffer())
-
+import Data.Argonaut.Encode (class EncodeJson, encodeJson)
+import Data.Argonaut.Parser (jsonParser)
+import Data.Either (either)
 import Data.Endpoint (Endpoint(Endpoint), FileUploadEndpoint(FileUploadEndpoint))
+import Data.HTTP.Method (Method(..))
+import Data.Maybe (Maybe(Nothing, Just), maybe)
+import Data.StrMap (StrMap)
+import Global (decodeURI)
+import Node.Buffer (Buffer)
+import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data App :: *
 foreign import data EXPRESS :: !
@@ -43,10 +38,10 @@ foreign import put :: forall eff. App -> String -> Middleware -> (Request -> Res
 foreign import sendStr  :: forall eff. Response -> String -> Eff (express :: EXPRESS | eff) Unit
 foreign import sendBuffer :: forall eff. Response -> Buffer -> Eff (express :: EXPRESS | eff) Unit
 foreign import hostStatic :: forall eff. App -> String -> Eff (express :: EXPRESS | eff) Unit
-foreign import jsonParser :: Middleware
-foreign import bufferParser :: Middleware
-foreign import noParser :: Middleware
-foreign import rawParser :: Middleware
+foreign import jsonParserMW :: Middleware
+foreign import bufferParserMW :: Middleware
+foreign import noParserMW :: Middleware
+foreign import rawParserMW :: Middleware
 
 type Handler eff a b c = a -> Input b -> Aff eff c
 
@@ -61,17 +56,16 @@ type Input a = { url :: String
 mapBody :: forall a b. (a -> b) -> Input a -> Input b
 mapBody f (i@{body}) = i {body = f body}
 
-hostEndpoint :: forall a b c eff. (Serializable a, DecodeJson b, EncodeJson c) =>
+hostEndpoint :: forall a b c eff. (DecodeJson a, DecodeJson b, EncodeJson c) =>
                   App -> Endpoint a b c -> Handler (express :: EXPRESS, console :: CONSOLE | eff) a b c
                   -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostEndpoint app (Endpoint {method, url}) h = 
   case method of
-       GET -> register get noParser
-       POST -> register post rawParser
-       PUT -> register put rawParser
-       DELETE -> register delete noParser
+       GET -> get app url noParserMW handler
+       POST -> post app url rawParserMW handler
+       PUT -> put app url rawParserMW handler
+       DELETE -> delete app url noParserMW handler
   where
-    register f parser = f app url parser handler 
     handler req res = runAff (\err -> do
                                  log $ "Failed hostEndpoint on " <> url <> message err
                                  sendStr res $ message err)
@@ -81,12 +75,12 @@ hostEndpoint app (Endpoint {method, url}) h =
                                  body <- parseBody i
                                  h qp body)
 
-hostFileUploadEndpoint :: forall eff a b. (Serializable a, EncodeJson b) =>
+hostFileUploadEndpoint :: forall eff a b. (DecodeJson a, EncodeJson b) =>
                       App 
                       -> FileUploadEndpoint a b 
                       -> Handler (express :: EXPRESS, console :: CONSOLE | eff) a Buffer b
                       -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
-hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferParser handler
+hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferParserMW handler
   where handler req res = runAff (\err -> do
                                      log $ "Failed hostFileUploadEndpoint on " <> url <> message err
                                      sendStr res $ message err)
@@ -100,25 +94,23 @@ blobToBuffer = unsafeCoerce
 parseBody :: forall a m. (DecodeJson a, MonadError Error m) => Input String -> m (Input a)
 parseBody a = either (\err -> throwError $ error err)
                             (\p -> return $ a { body = p})
-                            (P.jsonParser a.body >>= decodeJson)
+                            (jsonParser a.body >>= decodeJson)
 
 foreign import getParamsImpl :: forall a. (a -> Maybe a) -> Maybe a -> String -> Maybe String
 getParams :: String -> Maybe String
 getParams = getParamsImpl Just Nothing
 
-parseQueryParams :: forall a b m. (Serializable b, MonadError Error m) => Input a -> m b
-parseQueryParams {url} = either throwError
-                                return
-                                (maybe (Left $ error $ "No params found") 
-                                       (\s -> deserialize s)
-                                       (getParams url))
+parseQueryParams :: forall a b m. (DecodeJson b, MonadError Error m) => Input a -> m b
+parseQueryParams {url} = maybe (throwError $ error $ "No params found") 
+                               (\p -> either (throwError <<< error) return $ (decodeURI >>> jsonParser >=> decodeJson) p)
+                               (getParams url)
 
 hostFile :: forall eff. 
               App 
               -> String 
               -> (Input Unit -> Aff (express :: EXPRESS, console :: CONSOLE | eff) Buffer) 
               -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
-hostFile app url f = get app url noParser handler
+hostFile app url f = get app url noParserMW handler
   where 
     handler req res = runAff (\err -> do
                                log $ "Failed hostFile " <> message err

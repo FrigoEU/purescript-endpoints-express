@@ -2,8 +2,5 @@
   "name": "purescript-endpoints-express example",
   "dependencies": {
     "purescript-endpoints-express": "latest"
-  },
-  "resolutions": {
-    "purescript-datetime": "iso8601"
   }
 }

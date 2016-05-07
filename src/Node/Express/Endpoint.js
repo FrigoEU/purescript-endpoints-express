@@ -85,10 +85,10 @@ exports.hostStatic = function(app){
 };
 
 var bodyParser = require("body-parser");
-exports.jsonParser = bodyParser.json();
-exports.bufferParser = bodyParser.raw({type: "*/*", limit: "5MB"});
-exports.rawParser = bodyParser.text({type: "*/*"});
-exports.noParser = null;
+exports.jsonParserMW = bodyParser.json();
+exports.bufferParserMW = bodyParser.raw({type: "*/*", limit: "5MB"});
+exports.rawParserMW = bodyParser.text({type: "*/*"});
+exports.noParserMW = null;
 
 exports.mkConvert = function mkConvert(constr){
   return function(unit){
