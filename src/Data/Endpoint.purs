@@ -2,11 +2,11 @@ module Data.Endpoint where
 
 import Data.HTTP.Method (Method())
 
-data Endpoint a b c = Endpoint {
+data Endpoint qp body ret = Endpoint {
   method :: Method,
   url :: String
 }
 
-data FileUploadEndpoint a b = FileUploadEndpoint {
+data FileUploadEndpoint qp body = FileUploadEndpoint {
   url :: String
 }

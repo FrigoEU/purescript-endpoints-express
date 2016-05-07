@@ -56,8 +56,8 @@ type Input a = { url :: String
 mapBody :: forall a b. (a -> b) -> Input a -> Input b
 mapBody f (i@{body}) = i {body = f body}
 
-hostEndpoint :: forall a b c eff. (DecodeJson a, DecodeJson b, EncodeJson c) =>
-                  App -> Endpoint a b c -> Handler (express :: EXPRESS, console :: CONSOLE | eff) a b c
+hostEndpoint :: forall qp body ret eff. (DecodeJson qp, DecodeJson body, EncodeJson ret) =>
+                  App -> Endpoint qp body ret -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp body ret
                   -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostEndpoint app (Endpoint {method, url}) h = 
   case method of
@@ -75,10 +75,10 @@ hostEndpoint app (Endpoint {method, url}) h =
                                  body <- parseBody i
                                  h qp body)
 
-hostFileUploadEndpoint :: forall eff a b. (DecodeJson a, EncodeJson b) =>
+hostFileUploadEndpoint :: forall eff qp body. (DecodeJson qp, EncodeJson body) =>
                       App 
-                      -> FileUploadEndpoint a b 
-                      -> Handler (express :: EXPRESS, console :: CONSOLE | eff) a Buffer b
+                      -> FileUploadEndpoint qp body 
+                      -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp Buffer body
                       -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferParserMW handler
   where handler req res = runAff (\err -> do
