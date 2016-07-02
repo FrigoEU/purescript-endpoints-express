@@ -3,9 +3,9 @@ module Node.Express.Endpoint (
   hostStatic
 ) where
 
-import Prelude (Unit, unit, show, ($), (>>=), (<>), bind, (>>>), return, (<<<))
+import Control.Apply ((*>))
 import Control.Bind ((>=>))
-import Control.Monad.Aff (runAff, Aff)
+import Control.Monad.Aff (Aff, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (log, CONSOLE)
 import Control.Monad.Eff.Exception (message, error, Error)
@@ -21,6 +21,7 @@ import Data.Maybe (Maybe(Nothing, Just), maybe)
 import Data.StrMap (StrMap)
 import Global (decodeURI)
 import Node.Buffer (Buffer)
+import Prelude (Unit, unit, show, ($), (>>=), (<>), bind, (>>>), pure, (<<<))
 import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data App :: *
@@ -57,7 +58,9 @@ mapBody :: forall a b. (a -> b) -> Input a -> Input b
 mapBody f (i@{body}) = i {body = f body}
 
 hostEndpoint :: forall qp body ret eff. (DecodeJson qp, DecodeJson body, EncodeJson ret) =>
-                  App -> Endpoint qp body ret -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp body ret
+                  App 
+                  -> Endpoint qp body ret 
+                  -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp body ret
                   -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostEndpoint app (Endpoint {method, url}) h = 
   case method of
@@ -65,6 +68,18 @@ hostEndpoint app (Endpoint {method, url}) h =
        POST -> post app url rawParserMW handler
        PUT -> put app url rawParserMW handler
        DELETE -> delete app url noParserMW handler
+       OPTIONS -> pure unit
+       HEAD -> pure unit
+       TRACE -> pure unit
+       CONNECT -> pure unit
+       PROPFIND -> pure unit
+       PROPPATCH -> pure unit
+       MKCOL -> pure unit
+       COPY -> pure unit
+       PATCH -> pure unit
+       MOVE -> pure unit
+       LOCK -> pure unit
+       UNLOCK -> pure unit
   where
     handler req res = runAff (\err -> do
                                  log $ "Failed hostEndpoint on " <> url <> message err
@@ -73,7 +88,7 @@ hostEndpoint app (Endpoint {method, url}) h =
                              (do let i = convert req
                                  qp <- parseQueryParams i
                                  body <- parseBody i
-                                 h qp body)
+                                 h qp body) *> pure unit
 
 hostFileUploadEndpoint :: forall eff qp body. (DecodeJson qp, EncodeJson body) =>
                       App 
@@ -86,14 +101,14 @@ hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferPar
                                      sendStr res $ message err)
                                  (\a -> sendStr res $ show $ encodeJson a) 
                                  (let i = convertBlob req
-                                   in parseQueryParams i >>= \qp -> h qp (mapBody blobToBuffer i))
+                                   in parseQueryParams i >>= \qp -> h qp (mapBody blobToBuffer i)) *> pure unit
 
 blobToBuffer :: Blob -> Buffer
 blobToBuffer = unsafeCoerce
 
 parseBody :: forall a m. (DecodeJson a, MonadError Error m) => Input String -> m (Input a)
 parseBody a = either (\err -> throwError $ error err)
-                            (\p -> return $ a { body = p})
+                            (\p -> pure $ a { body = p})
                             (jsonParser a.body >>= decodeJson)
 
 foreign import getParamsImpl :: forall a. (a -> Maybe a) -> Maybe a -> String -> Maybe String
@@ -102,7 +117,7 @@ getParams = getParamsImpl Just Nothing
 
 parseQueryParams :: forall a b m. (DecodeJson b, MonadError Error m) => Input a -> m b
 parseQueryParams {url} = maybe (throwError $ error $ "No params found") 
-                               (\p -> either (throwError <<< error) return $ (decodeURI >>> jsonParser >=> decodeJson) p)
+                               (\p -> either (throwError <<< error) pure $ (decodeURI >>> jsonParser >=> decodeJson) p)
                                (getParams url)
 
 hostFile :: forall eff. 
@@ -116,7 +131,7 @@ hostFile app url f = get app url noParserMW handler
                                log $ "Failed hostFile " <> message err
                                sendStr res $ message err)
                              (\a -> sendBuffer res a)
-                             (parseBody (convert req) >>= f)
+                             (parseBody (convert req) >>= f) *> pure unit
 
 convert :: Request -> Input String
 convert = mkConvert {url: _, body: _, params: _, path: _, query: _, headers: _}

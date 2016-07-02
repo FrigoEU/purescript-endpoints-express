@@ -16,7 +16,7 @@ import Data.MediaType.Common (applicationJSON)
 import Global (encodeURI)
 import Network.HTTP.Affjax (AJAX, affjax)
 import Network.HTTP.RequestHeader (RequestHeader(..))
-import Prelude (return, (<>), ($), (>>>), (>>=), show, (<<<))
+import Prelude (pure, (<>), ($), (>>>), (>>=), show, (<<<))
 import Unsafe.Coerce (unsafeCoerce)
 
 execEndpoint_ :: forall eff qp body ret. (EncodeJson qp, EncodeJson body, DecodeJson ret) =>
@@ -53,4 +53,4 @@ fileToBlob = unsafeCoerce
 
 parseOrThrow :: forall eff a. (DecodeJson a) => String -> Aff eff a
 parseOrThrow s = 
-  either (\e -> throwError $ error $ "Failed to parse: " <> s) return (jsonParser s >>= decodeJson)
+  either (\e -> throwError $ error $ "Failed to parse: " <> s) pure (jsonParser s >>= decodeJson)
