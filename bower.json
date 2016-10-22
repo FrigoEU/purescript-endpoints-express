@@ -12,9 +12,9 @@
     "example"
   ],
   "dependencies": {
-    "purescript-affjax": "1.1.0",
-    "purescript-argonaut-codecs": "1.0.0",
-    "purescript-argonaut-core": "1.0.0",
+    "purescript-affjax": "2.0.1",
+    "purescript-argonaut-codecs": "1.1.0",
+    "purescript-argonaut-core": "1.1.0",
     "purescript-node-buffer": "1.0.0"
   }
 }

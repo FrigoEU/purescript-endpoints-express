@@ -3,11 +3,15 @@
 //module Node.Express.Endpoint
 /*eslint-env node*/
 
-exports.makeApp = function makeApp(){
-  var app = require("express")();
-  var compression = require("compression");
-  app.use(compression());
-  return app;
+exports.makeApp = function makeApp(mws){
+  return function(){
+    var app = require("express")();
+    var i = 0;
+    for (i = 0; i < mws.length; i ++){
+      app.use(mws[i]);
+    }
+    return app;
+  };
 };
 
 exports.listen = function listen(app){
@@ -89,6 +93,7 @@ exports.jsonParserMW = bodyParser.json();
 exports.bufferParserMW = bodyParser.raw({type: "*/*", limit: "5MB"});
 exports.rawParserMW = bodyParser.text({type: "*/*"});
 exports.noParserMW = null;
+exports.compression = compression();
 
 exports.mkConvert = function mkConvert(constr){
   return function(unit){
@@ -108,6 +113,13 @@ exports.sendStr = function sendStr(res){
   return function(string){
     return function(){
       res.send(string);
+    };
+  };
+};
+exports.setStatus = function setStatus(res){
+  return function(i){
+    return function(){
+      res.status(i);
     };
   };
 };
