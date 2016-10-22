@@ -21,7 +21,7 @@ import Data.Maybe (Maybe(Nothing, Just), maybe)
 import Data.StrMap (StrMap)
 import Global (decodeURI)
 import Node.Buffer (Buffer)
-import Prelude ((<$>), class Functor, Unit, unit, show, ($), (>>=), (<>), bind, (>>>), pure, (<<<))
+import Prelude (Unit, unit, show, pure, bind, ($), (>>=), (<>), (>>>), (<<<))
 import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data App :: *
@@ -48,23 +48,23 @@ foreign import compression :: Middleware
 
 type Handler eff a b c = a -> Input b -> Aff eff c
 
-newtype Input a = Input { url :: String
-                        , body :: a
-                        , params :: StrMap String
-                        , path :: String 
-                        , query :: StrMap String
-                        , headers :: StrMap String
-                        }
+type Input a = { url :: String
+               , body :: a
+               , params :: StrMap String
+               , path :: String
+               , query :: StrMap String
+               , headers :: StrMap String
+               }
 
-instance functorInput :: Functor Input where
-  map f (Input i@{body}) = Input (i {body = f body})
+mapInput :: forall a b c. (b -> c) -> { body :: b | a} -> { body :: c | a}
+mapInput f i@{body} = i {body = f body}
 
 hostEndpoint :: forall qp body ret eff. (DecodeJson qp, DecodeJson body, EncodeJson ret) =>
-                  App 
-                  -> Endpoint qp body ret 
+                  App
+                  -> Endpoint qp body ret
                   -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp body ret
                   -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
-hostEndpoint app (Endpoint {method, url}) h = 
+hostEndpoint app (Endpoint {method, url}) h =
   case method of
        GET -> get app url noParserMW handler
        POST -> post app url rawParserMW handler
@@ -83,8 +83,8 @@ hostEndpoint app (Endpoint {method, url}) h =
                                  h qp body) *> pure unit
 
 hostFileUploadEndpoint :: forall eff qp body. (DecodeJson qp, EncodeJson body) =>
-                      App 
-                      -> FileUploadEndpoint qp body 
+                      App
+                      -> FileUploadEndpoint qp body
                       -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp Buffer body
                       -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferParserMW handler
@@ -92,16 +92,16 @@ hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferPar
                                      log $ "Failed hostFileUploadEndpoint on " <> url <> message err
                                      setStatus res 500
                                      sendStr res $ message err)
-                                 (\a -> sendStr res $ show $ encodeJson a) 
+                                 (\a -> sendStr res $ show $ encodeJson a)
                                  (let i = convertBlob req
-                                   in parseQueryParams i >>= \qp -> h qp (blobToBuffer <$> i)) *> pure unit
+                                   in parseQueryParams i >>= \qp -> h qp (mapInput blobToBuffer i)) *> pure unit
 
 blobToBuffer :: Blob -> Buffer
 blobToBuffer = unsafeCoerce
 
 parseBody :: forall a m. (DecodeJson a, MonadError Error m) => Input String -> m (Input a)
-parseBody (Input a) = either (\err -> throwError $ error err)
-                                (\p -> pure $ Input $ a { body = p})
+parseBody a = either (\err -> throwError $ error err)
+                                (\p -> pure $ a { body = p})
                                 (jsonParser a.body >>= decodeJson)
 
 foreign import getParamsImpl :: forall a. (a -> Maybe a) -> Maybe a -> String -> Maybe String
@@ -109,17 +109,17 @@ getParams :: String -> Maybe String
 getParams = getParamsImpl Just Nothing
 
 parseQueryParams :: forall a b m. (DecodeJson b, MonadError Error m) => Input a -> m b
-parseQueryParams (Input {url}) = maybe (throwError $ error $ "No params found") 
+parseQueryParams {url} = maybe (throwError $ error $ "No params found")
                                        (\p -> either (throwError <<< error) pure $ (decodeURI >>> jsonParser >=> decodeJson) p)
                                        (getParams url)
 
-hostFile :: forall eff. 
-              App 
-              -> String 
-              -> (Input Unit -> Aff (express :: EXPRESS, console :: CONSOLE | eff) Buffer) 
+hostFile :: forall eff.
+              App
+              -> String
+              -> (Input Unit -> Aff (express :: EXPRESS, console :: CONSOLE | eff) Buffer)
               -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostFile app url f = get app url noParserMW handler
-  where 
+  where
     handler req res = runAff (\err -> do
                                log $ "Failed hostFile " <> message err
                                setStatus res 500
@@ -128,15 +128,15 @@ hostFile app url f = get app url noParserMW handler
                              (parseBody (convert req) >>= f) *> pure unit
 
 convert :: Request -> Input String
-convert = mkConvert (\a b c d e f -> Input {url: a, body: b, params: c, path: d, query: e, headers: f})
+convert = mkConvert (\a b c d e f -> {url: a, body: b, params: c, path: d, query: e, headers: f})
                     (show $ encodeJson unit)
 
 convertBlob :: Request -> Input Blob
-convertBlob = mkBufferConvert (\a b c d e f -> Input {url: a, body: b, params: c, path: d, query: e, headers: f})
+convertBlob = mkBufferConvert (\a b c d e f -> {url: a, body: b, params: c, path: d, query: e, headers: f})
 
-foreign import mkConvert :: 
-  forall a. (String -> a -> StrMap String -> String -> StrMap String -> StrMap String -> Input a) 
+foreign import mkConvert ::
+  forall a. (String -> a -> StrMap String -> String -> StrMap String -> StrMap String -> Input a)
             -> String -> Request -> Input a
-foreign import mkBufferConvert :: 
-  (String -> Blob -> StrMap String -> String -> StrMap String -> StrMap String -> Input Blob) 
+foreign import mkBufferConvert ::
+  (String -> Blob -> StrMap String -> String -> StrMap String -> StrMap String -> Input Blob)
             -> Request -> Input Blob
