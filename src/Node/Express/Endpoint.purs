@@ -1,6 +1,6 @@
 module Node.Express.Endpoint (
   makeApp, listen, hostEndpoint, hostFile, hostFileUploadEndpoint, Input(), Handler(), App(), EXPRESS(),
-  hostStatic, compression
+  hostStatic, compression, Middleware
 ) where
 
 import Control.Apply ((*>))
