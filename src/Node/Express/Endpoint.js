@@ -93,7 +93,7 @@ exports.jsonParserMW = bodyParser.json();
 exports.bufferParserMW = bodyParser.raw({type: "*/*", limit: "5MB"});
 exports.rawParserMW = bodyParser.text({type: "*/*"});
 exports.noParserMW = null;
-exports.compression = compression();
+exports.compression = require("compression")();
 
 exports.mkConvert = function mkConvert(constr){
   return function(unit){
