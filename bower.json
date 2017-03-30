@@ -15,6 +15,7 @@
     "purescript-affjax": "3.0.0",
     "purescript-argonaut-codecs": "2.0.0",
     "purescript-argonaut-core": "2.0.1",
-    "purescript-node-buffer": "2.0.0"
+    "purescript-node-buffer": "2.0.0",
+    "purescript-strings": "2.1.0"
   }
 }

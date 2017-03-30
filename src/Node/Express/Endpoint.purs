@@ -8,7 +8,7 @@ import Control.Bind ((>=>))
 import Control.Monad.Aff (Aff, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (log, CONSOLE)
-import Control.Monad.Eff.Exception (message, error, Error)
+import Control.Monad.Eff.Exception (EXCEPTION, Error, error, message, throw, throwException)
 import Control.Monad.Error.Class (throwError, class MonadError)
 import DOM.File.Types (Blob)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
@@ -19,9 +19,10 @@ import Data.Endpoint (Endpoint(Endpoint), FileUploadEndpoint(FileUploadEndpoint)
 import Data.HTTP.Method (Method(..))
 import Data.Maybe (Maybe(Nothing, Just), maybe)
 import Data.StrMap (StrMap)
+import Data.String (take)
 import Global (decodeURI)
 import Node.Buffer (Buffer)
-import Prelude (Unit, unit, show, pure, bind, ($), (>>=), (<>), (>>>), (<<<))
+import Prelude (Unit, bind, pure, show, unit, ($), (/=), (<<<), (<>), (>>=), (>>>))
 import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data App :: *
@@ -62,9 +63,10 @@ mapInput f i@{body} = i {body = f body}
 hostEndpoint :: forall qp body ret eff. (DecodeJson qp, DecodeJson body, EncodeJson ret) =>
                   App
                   -> Endpoint qp body ret
-                  -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp body ret
-                  -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
-hostEndpoint app (Endpoint {method, url}) h =
+                  -> Handler (express :: EXPRESS, console :: CONSOLE, err :: EXCEPTION | eff) qp body ret
+                  -> Eff (express :: EXPRESS, console :: CONSOLE, err :: EXCEPTION | eff) Unit
+hostEndpoint app (Endpoint {method, url}) h = do
+  checks
   case method of
        GET -> get app url noParserMW handler
        POST -> post app url rawParserMW handler
@@ -72,6 +74,7 @@ hostEndpoint app (Endpoint {method, url}) h =
        DELETE -> delete app url noParserMW handler
        _ -> pure unit
   where
+    checks = if take 1 url /= "/" then throw "Url must start with /" else pure unit
     handler req res = runAff (\err -> do
                                  log $ "Failed hostEndpoint on " <> url <> " " <> message err
                                  setStatus res 500
