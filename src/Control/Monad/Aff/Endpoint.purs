@@ -7,7 +7,7 @@ import DOM.File.Types (File, Blob)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Encode (class EncodeJson, encodeJson)
 import Data.Argonaut.Parser (jsonParser)
-import Data.Argonaut.Printer (printJson)
+import Data.Argonaut.Core (stringify)
 import Data.Either (Either(Left), either)
 import Data.Endpoint (Endpoint(Endpoint), FileUploadEndpoint(FileUploadEndpoint))
 import Data.HTTP.Method (Method(..))
@@ -19,12 +19,12 @@ import Network.HTTP.RequestHeader (RequestHeader(..))
 import Prelude (pure, (<>), ($), (>>>), (>>=), show, (<<<))
 import Unsafe.Coerce (unsafeCoerce)
 
-execEndpoint_ :: forall eff qp body ret. (EncodeJson qp, EncodeJson body, DecodeJson ret) =>
+execEndpoint_ :: forall eff qp body ret. (EncodeJson qp) => (EncodeJson body) => (DecodeJson ret) =>
                   String -> Endpoint qp body ret -> qp -> body -> Aff (ajax :: AJAX | eff) ret
 execEndpoint_ s (Endpoint {method: method, url: u}) qp body = 
   affjax opts >>= _.response >>> parseOrThrow
     where opts = { method: Left method
-                 , url: s <> u <> "?params=" <> (encodeURI <<< printJson <<< encodeJson) qp
+                 , url: s <> u <> "?params=" <> (encodeURI <<< stringify <<< encodeJson) qp
                  , headers: [ContentType applicationJSON]
                  , content: (Just $ show $ encodeJson body) :: Maybe String
                  , username: Nothing
@@ -32,15 +32,15 @@ execEndpoint_ s (Endpoint {method: method, url: u}) qp body =
                  , withCredentials: false}
 
 -- relative path
-execEndpoint :: forall eff qp body ret. (EncodeJson qp, EncodeJson body, DecodeJson ret) =>
+execEndpoint :: forall eff qp body ret. (EncodeJson qp) => (EncodeJson body) => (DecodeJson ret) =>
                  Endpoint qp body ret -> qp -> body -> Aff (ajax :: AJAX | eff) ret
 execEndpoint = execEndpoint_ ""
 
-execFileUploadEndpoint :: forall eff qp body . (EncodeJson qp, DecodeJson body) =>
+execFileUploadEndpoint :: forall eff qp body . (EncodeJson qp) => (DecodeJson body) =>
                              FileUploadEndpoint qp body -> File -> qp -> Aff (ajax :: AJAX | eff) body
 execFileUploadEndpoint (FileUploadEndpoint {url: u}) file qp = affjax opts >>= _.response >>> parseOrThrow
   where opts = { method: Left POST
-               , url: u <> "?params=" <> (encodeURI <<< printJson <<< encodeJson) qp
+               , url: u <> "?params=" <> (encodeURI <<< stringify <<< encodeJson) qp
                , headers: []
                , content: Just $ fileToBlob file
                , username: Nothing

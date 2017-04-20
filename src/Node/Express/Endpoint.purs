@@ -6,7 +6,7 @@ module Node.Express.Endpoint (
 import Control.Apply ((*>))
 import Control.Bind ((>=>))
 import Control.Monad.Aff (Aff, runAff)
-import Control.Monad.Eff (Eff)
+import Control.Monad.Eff (Eff, kind Effect)
 import Control.Monad.Eff.Console (log, CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION, Error, error, message, throw, throwException)
 import Control.Monad.Error.Class (throwError, class MonadError)
@@ -22,14 +22,14 @@ import Data.StrMap (StrMap)
 import Data.String (take)
 import Global (decodeURI)
 import Node.Buffer (Buffer)
-import Prelude (Unit, bind, pure, show, unit, ($), (/=), (<<<), (<>), (>>=), (>>>))
+import Prelude (Unit, bind, pure, show, unit, ($), (/=), (<<<), (<>), (>>=), (>>>), discard)
 import Unsafe.Coerce (unsafeCoerce)
 
-foreign import data App :: *
-foreign import data EXPRESS :: !
-foreign import data Request :: *
-foreign import data Response :: *
-foreign import data Middleware :: *
+foreign import data App :: Type
+foreign import data EXPRESS :: Effect
+foreign import data Request :: Type
+foreign import data Response :: Type
+foreign import data Middleware :: Type
 
 foreign import makeApp :: forall eff. Array Middleware -> Eff (express :: EXPRESS | eff) App
 foreign import listen :: forall eff. App -> Int -> Eff (express :: EXPRESS | eff) Unit
@@ -60,11 +60,11 @@ type Input a = { url :: String
 mapInput :: forall a b c. (b -> c) -> { body :: b | a} -> { body :: c | a}
 mapInput f i@{body} = i {body = f body}
 
-hostEndpoint :: forall qp body ret eff. (DecodeJson qp, DecodeJson body, EncodeJson ret) =>
+hostEndpoint :: forall qp body ret eff. (DecodeJson qp) => (DecodeJson body) => (EncodeJson ret) =>
                   App
                   -> Endpoint qp body ret
-                  -> Handler (express :: EXPRESS, console :: CONSOLE, err :: EXCEPTION | eff) qp body ret
-                  -> Eff (express :: EXPRESS, console :: CONSOLE, err :: EXCEPTION | eff) Unit
+                  -> Handler (express :: EXPRESS, console :: CONSOLE, exception :: EXCEPTION | eff) qp body ret
+                  -> Eff (express :: EXPRESS, console :: CONSOLE, exception :: EXCEPTION | eff) Unit
 hostEndpoint app (Endpoint {method, url}) h = do
   checks
   case method of
@@ -85,7 +85,7 @@ hostEndpoint app (Endpoint {method, url}) h = do
                                  body <- parseBody i
                                  h qp body) *> pure unit
 
-hostFileUploadEndpoint :: forall eff qp body. (DecodeJson qp, EncodeJson body) =>
+hostFileUploadEndpoint :: forall eff qp body. (DecodeJson qp) => (EncodeJson body) =>
                       App
                       -> FileUploadEndpoint qp body
                       -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp Buffer body
@@ -102,7 +102,7 @@ hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferPar
 blobToBuffer :: Blob -> Buffer
 blobToBuffer = unsafeCoerce
 
-parseBody :: forall a m. (DecodeJson a, MonadError Error m) => Input String -> m (Input a)
+parseBody :: forall a m. (DecodeJson a) => (MonadError Error m) => Input String -> m (Input a)
 parseBody a = either (\err -> throwError $ error err)
                                 (\p -> pure $ a { body = p})
                                 (jsonParser a.body >>= decodeJson)
@@ -111,7 +111,7 @@ foreign import getParamsImpl :: forall a. (a -> Maybe a) -> Maybe a -> String ->
 getParams :: String -> Maybe String
 getParams = getParamsImpl Just Nothing
 
-parseQueryParams :: forall a b m. (DecodeJson b, MonadError Error m) => Input a -> m b
+parseQueryParams :: forall a b m. (DecodeJson b) => (MonadError Error m) => Input a -> m b
 parseQueryParams {url} = maybe (throwError $ error $ "No params found")
                                        (\p -> either (throwError <<< error) pure $ (decodeURI >>> jsonParser >=> decodeJson) p)
                                        (getParams url)
