@@ -1,6 +1,6 @@
 {
   "name": "purescript-endpoints-express",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "authors": [
     "Simon Van Casteren <simon.van.casteren@gmail.com>"
   ],
@@ -12,7 +12,7 @@
     "example"
   ],
   "dependencies": {
-    "purescript-affjax": "4.0.0",
+    "purescript-affjax": "5.0.0",
     "purescript-argonaut-codecs": "3.0.0",
     "purescript-argonaut-core": "3.1.0",
     "purescript-node-buffer": "3.0.0",

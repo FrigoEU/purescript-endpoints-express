@@ -75,11 +75,11 @@ hostEndpoint app (Endpoint {method, url}) h = do
        _ -> pure unit
   where
     checks = if take 1 url /= "/" then throw "Url must start with /" else pure unit
-    handler req res = runAff (\err -> do
-                                 log $ "Failed hostEndpoint on " <> url <> " " <> message err
-                                 setStatus res 500
-                                 sendStr res $ message err)
-                             (\a -> sendStr res $ show $ encodeJson a)
+    handler req res = runAff (either (\err -> do
+                                         log $ "Failed hostEndpoint on " <> url <> " " <> message err
+                                         setStatus res 500
+                                         sendStr res $ message err)
+                                     (\a -> sendStr res $ show $ encodeJson a))
                              (do let i = convert req
                                  qp <- parseQueryParams i
                                  body <- parseBody i
@@ -91,11 +91,11 @@ hostFileUploadEndpoint :: forall eff qp body. (DecodeJson qp) => (EncodeJson bod
                       -> Handler (express :: EXPRESS, console :: CONSOLE | eff) qp Buffer body
                       -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostFileUploadEndpoint app (FileUploadEndpoint {url}) h = post app url bufferParserMW handler
-  where handler req res = runAff (\err -> do
-                                     log $ "Failed hostFileUploadEndpoint on " <> url <> message err
-                                     setStatus res 500
-                                     sendStr res $ message err)
-                                 (\a -> sendStr res $ show $ encodeJson a)
+  where handler req res = runAff (either (\err -> do
+                                              log $ "Failed hostFileUploadEndpoint on " <> url <> message err
+                                              setStatus res 500
+                                              sendStr res $ message err)
+                                         (\a -> sendStr res $ show $ encodeJson a))
                                  (let i = convertBlob req
                                    in parseQueryParams i >>= \qp -> h qp (mapInput blobToBuffer i)) *> pure unit
 
@@ -123,11 +123,11 @@ hostFile :: forall eff.
               -> Eff (express :: EXPRESS, console :: CONSOLE | eff) Unit
 hostFile app url f = get app url noParserMW handler
   where
-    handler req res = runAff (\err -> do
-                               log $ "Failed hostFile " <> message err
-                               setStatus res 500
-                               sendStr res $ message err)
-                             (\a -> sendBuffer res a)
+    handler req res = runAff (either (\err -> do
+                                          log $ "Failed hostFile " <> message err
+                                          setStatus res 500
+                                          sendStr res $ message err)
+                                     (\a -> sendBuffer res a))
                              (parseBody (convert req) >>= f) *> pure unit
 
 convert :: Request -> Input String
